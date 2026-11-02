@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>모터 감속기 발표</title>
+<style>
+@font-face { font-family: "Pretendard"; src: url("../fonts/Pretendard-Regular.otf") format("opentype"); font-weight: 400; }
+@font-face { font-family: "Pretendard"; src: url("../fonts/Pretendard-SemiBold.otf") format("opentype"); font-weight: 600; }
+:root { --bg: #0E1116; --fg: #ECEEF2; --muted: #8B94A3; --accent: #4EA1FF; --bad: #FF5A5F; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Pretendard", sans-serif; color: var(--fg); }
+#viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#stage { position: relative; width: 1920px; height: 1080px; flex: none; background: var(--bg); transform-origin: center; overflow: hidden; }
+.slide { position: absolute; inset: 0; visibility: hidden; }
+.slide.active { visibility: visible; }
+.slide > svg { width: 1920px; height: 1080px; display: block; font-family: "Pretendard", sans-serif; }
+.slide:not(.active) * { animation-play-state: paused !important; }
+
+/* 단계 표시: .off = 아직 안 나온 요소 */
+.el { transition: opacity 0s var(--d, 0ms), transform .5s ease var(--d, 0ms), color .4s; }
+.el.off { opacity: 0; transition-delay: 0ms; }
+#stage .noanim .el, #stage .noanim .el * { transition: none !important; }
+.dim { opacity: .25 !important; transition: opacity .4s !important; }
+.red, .red * { color: var(--bad) !important; }
+.gone { transform: scaleX(0) !important; }
+
+.fade { transition: opacity .45s ease var(--d, 0ms), transform .6s ease var(--d, 0ms), color .4s; }
+.pop { transform-box: fill-box; transform-origin: center; transition: opacity .3s var(--d, 0ms), transform .45s cubic-bezier(.34, 1.56, .64, 1) var(--d, 0ms); }
+.pop.off { transform: scale(.4); }
+.grow { transition: opacity .1s var(--d, 0ms), transform .55s ease-out var(--d, 0ms); }
+.grow.off { transform: scale(0); }
+.gx, .gxr, .gy { transform-box: fill-box; transition: transform .75s cubic-bezier(.2, .7, .2, 1) var(--d, 0ms), opacity .1s var(--d, 0ms); }
+.gx { transform-origin: left center; }  .gx.off { transform: scaleX(0); }
+.gxr { transform-origin: right center; } .gxr.off { transform: scaleX(0); }
+.gy { transform-origin: center bottom; } .gy.off { transform: scaleY(0); }
+.up { transition: opacity .45s var(--d, 0ms), transform .5s ease var(--d, 0ms); }
+.up.off { transform: translateY(26px); }
+.drop { transition: opacity .35s var(--d, 0ms), transform .45s ease var(--d, 0ms); }
+.drop.off { transform: translate(-14px, -26px); }
+.cover { transform-box: fill-box; transform-origin: right center; transition: transform 1.1s ease-in-out var(--d, 0ms) !important; }
+.mv { transition: transform .9s cubic-bezier(.4, 0, .2, 1) var(--d, 0ms) !important; }
+
+.draw :is(path, line, polyline, polygon, circle, rect, ellipse) { stroke-dashoffset: 0; transition: stroke-dashoffset var(--dur, 1.2s) ease-in-out var(--d, 0ms); }
+.draw.off { opacity: 1; }
+.wipe { clip-path: inset(0 0 0 0) stroke-box; transition: clip-path var(--dur, 1.2s) ease-in-out var(--d, 0ms); }
+.wipe.off { opacity: 1; clip-path: inset(0 100% 0 0) stroke-box; transition: none; }
+.draw.off :is(path, line, polyline, polygon, circle, rect, ellipse) { stroke-dashoffset: var(--len); transition: none; }
+
+.spin { animation: spin var(--T, 3s) linear infinite; transform-box: view-box; }
+.spin.rev { animation-direction: reverse; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.blink { animation: blink 1.1s ease-in-out infinite; animation-delay: var(--bd, 0s); }
+@keyframes blink { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+.ping { transform-box: fill-box; transform-origin: center; animation: ping 1.6s ease-out infinite; animation-delay: var(--bd, 0s); }
+@keyframes ping { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
+.flow { animation: flow 1.2s linear infinite; animation-delay: var(--bd, 0s); }
+@keyframes flow { from { transform: translateX(0); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } to { transform: translateX(var(--fl, 120px)); opacity: 0; } }
+.pulse { transform-box: fill-box; transform-origin: center bottom; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); filter: none; } 50% { transform: scale(1.06, 1.03); filter: drop-shadow(0 0 18px #FF5A5F); } }
+.beat { transform-box: fill-box; transform-origin: center; animation: beat .6s ease-in-out 1; }
+@keyframes beat { 50% { transform: scale(1.08); } }
+
+/* 한 번만 도는 등장 효과. .done이면 마지막 모습으로 바로 */
+.fly.on:not(.done) { animation: fly 1.4s ease var(--d, 0ms) both; }
+@keyframes fly { from { transform: translate(var(--fx), var(--fy)); opacity: 0; } 25% { transform: translate(var(--fx), var(--fy)); opacity: 1; } to { transform: none; opacity: 1; } }
+.ghost { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.ghost.on:not(.done) { animation: ghost 1.2s ease var(--d, 0ms) both; }
+@keyframes ghost { from { opacity: 1; transform: none; }
+  75% { opacity: 1; transform: translate(var(--gx), var(--gy)) rotate(-90deg) scaleY(var(--gk)); }
+  to { opacity: 0; transform: translate(var(--gx), var(--gy)) rotate(-90deg) scaleY(var(--gk)); } }
+.rise.on:not(.done) { animation: rise .8s ease var(--d, 0ms) both; }
+@keyframes rise { from { transform: translateY(var(--ry)); } to { transform: none; } }
+.tint.on:not(.done) { animation: tint .3s ease var(--d, 0ms) both; }
+@keyframes tint { from { fill: #ECEEF2; } }
+.packet.go { animation: packet 1.2s cubic-bezier(.45, 0, .55, 1) both; }
+@keyframes packet { from { transform: translateX(0); opacity: 1; } 92% { opacity: 1; } to { transform: translateX(var(--px)); opacity: 0; } }
+.flash.go { animation: flash .5s ease 1; }
+@keyframes flash { 40% { stroke-width: 10; } }
+
+/* 화면 보조 요소 */
+#progress { position: absolute; left: 0; bottom: 0; height: 5px; background: var(--accent); transition: width .3s; opacity: .55; }
+#hud { position: absolute; right: 22px; bottom: 14px; font-size: 22px; color: #5A6372; font-variant-numeric: tabular-nums; }
+#notes { position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 60px 34px; background: rgba(8, 10, 14, .92); border-top: 1px solid #2A303A;
+  font-size: 34px; line-height: 1.55; color: #D9DDE4; display: none; }
+#notes.show { display: block; }
+#notes b { color: var(--accent); font-weight: 600; font-size: 24px; display: block; margin-bottom: 6px; }
+#help { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(8, 10, 14, .95); border: 1px solid #2A303A;
+  padding: 40px 56px; font-size: 30px; line-height: 1.8; display: none; border-radius: 14px; }
+#help.show { display: block; }
+#help kbd { display: inline-block; min-width: 2.2em; text-align: center; padding: 0 10px; margin-right: 14px; border: 1px solid #4A5260; border-radius: 6px; color: var(--accent); }
+.hidehud #hud, .hidehud #progress { display: none; }
+
+/* 왼쪽 슬라이드 목록 (S 키나 왼쪽 위 버튼으로 연다) */
+#side { position: fixed; left: 0; top: 0; bottom: 0; width: 272px; background: #0B0D11; border-right: 1px solid #232831; overflow-y: auto;
+  padding: 12px 12px 40px 6px; transform: translateX(-100%); transition: transform .25s ease; z-index: 5; scrollbar-width: thin; scrollbar-color: #2A303A transparent; }
+.side #side { transform: none; }
+.side #viewport { left: 272px; }
+#side .item { display: flex; align-items: flex-start; gap: 6px; width: 100%; padding: 6px 0; background: none; border: 0; cursor: pointer; color: #5A6372; font: inherit; text-align: left; }
+#side .no { width: 26px; flex: none; text-align: right; font-size: 13px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+#side .thumb { width: 224px; height: 126px; flex: none; overflow: hidden; background: var(--bg); border: 2px solid #232831; border-radius: 4px; }
+#side .item:hover .thumb { border-color: #4A5260; }
+#side .item.cur .no { color: var(--accent); font-weight: 600; }
+#side .item.cur .thumb { border-color: var(--accent); }
+#side svg { width: 100%; height: 100%; display: block; font-family: "Pretendard", sans-serif; }
+.thumb *, .thumb *::before { animation: none !important; transition: none !important; }
+#sidebtn { position: fixed; left: 10px; top: 10px; z-index: 6; width: 40px; height: 40px; border: 1px solid #2A303A; border-radius: 8px; background: rgba(11, 13, 17, .85);
+  color: #8B94A3; font-size: 20px; cursor: pointer; opacity: 0; transition: opacity .3s, left .25s ease; }
+#sidebtn.show, .side #sidebtn { opacity: 1; }
+.side #sidebtn { left: 282px; }
+</style>
+</head>
+<body>
+<nav id="side"></nav>
+<button id="sidebtn" title="슬라이드 목록 (S)">☰</button>
+<div id="viewport"><div id="stage">
+  <div id="slides"></div>
+  <div id="progress"></div>
+  <div id="hud"></div>
+  <div id="notes"></div>
+  <div id="help">
+    <div><kbd>→</kbd>다음 (클릭, Space도 같음)</div>
+    <div><kbd>←</kbd>이전</div>
+    <div><kbd>⇧→</kbd>다음 슬라이드로 바로</div>
+    <div><kbd>N</kbd>대본 보기</div>
+    <div><kbd>P</kbd>발표자 창 열기</div>
+    <div><kbd>F</kbd>전체 화면</div>
+    <div><kbd>S</kbd>슬라이드 목록 (눌러서 바로 이동)</div>
+    <div><kbd>H</kbd>쪽 번호 숨기기</div>
+    <div><kbd>숫자</kbd>입력 후 Enter: 그 슬라이드로 이동</div>
+  </div>
+</div></div>
+<script src="assets/data.js"></script>
+<script src="slides.js"></script>
+<script>
+(() => {
+  const SL = window.SLIDES;
+  const host = document.getElementById("slides");
+  const stage = document.getElementById("stage");
+  const notesEl = document.getElementById("notes");
+  const hud = document.getElementById("hud");
+  const prog = document.getElementById("progress");
+
+  // 슬라이드 DOM 만들기
+  SL.forEach((s, i) => {
+    const sec = document.createElement("section");
+    sec.className = "slide";
+    sec.dataset.sl = i;
+    sec.innerHTML = `<svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">${s.svg}</svg>`;
+    host.appendChild(sec);
+    s.root = sec;
+    s.els = [...sec.querySelectorAll("[data-s]")];
+    let max = s.steps || 0;
+    for (const el of s.els) {
+      max = Math.max(max, +el.dataset.s, el.dataset.o ? +el.dataset.o : 0);
+      if (el.dataset.add) for (const e of el.dataset.add.split(" ")) max = Math.max(max, +e.split(":")[0]);
+    }
+    s.max = max;
+  });
+
+  // 선 그리기 효과용 길이
+  function measure() {
+    for (const s of SL) for (const g of s.root.querySelectorAll(".draw")) {
+      for (const el of g.querySelectorAll("path, line, polyline, polygon, circle, rect, ellipse")) {
+        let len = 0;
+        try { len = el.getTotalLength(); } catch (e) { }
+        if (len) { el.style.strokeDasharray = len + 1; el.style.setProperty("--len", len + 1); }
+      }
+    }
+  }
+
+  const viewport = document.getElementById("viewport");
+  function fit() {
+    const k = Math.min(viewport.clientWidth / 1920, viewport.clientHeight / 1080);
+    stage.style.transform = `scale(${k})`;
+  }
+  addEventListener("resize", fit);
+  fit();
+
+  let cur = -1, step = 0, raf = 0, timers = [], tweens = [];
+  const clearAsync = () => { timers.forEach(clearTimeout); timers = []; tweens.forEach(t => t.dead = true); tweens = []; };
+
+  function ctxFor(s, fwd) {
+    const root = s.root;
+    const ctx = {
+      step, fwd, root, D: window.DECK_DATA,
+      $: n => root.querySelector(`[data-n="${n}"]`),
+      $$: n => [...root.querySelectorAll(`[data-n="${n}"]`)],
+      after(ms, fn) { timers.push(setTimeout(fn, ms)); },
+      tween(ms, fn, ease = t => t) {
+        const tw = { dead: false }; tweens.push(tw);
+        const t0 = performance.now();
+        const tick = now => {
+          if (tw.dead) return;
+          const p = Math.min(1, (now - t0) / ms);
+          fn(ease(p));
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        fn(0); requestAnimationFrame(tick);
+      },
+      // 단계 k에 앞으로 들어왔을 때만 움직이고, 그 밖에는 처음 또는 끝 모습
+      anim(k, ms, fn, ease, delay = 0) {
+        if (step === k && fwd) { fn(0); delay ? ctx.after(delay, () => ctx.tween(ms, fn, ease)) : ctx.tween(ms, fn, ease); }
+        else fn(step >= k ? 1 : 0);
+      },
+      replay(el, cls = "go") { el.classList.remove(cls); void el.getBoundingClientRect(); el.classList.add(cls); },
+    };
+    return ctx;
+  }
+
+  // 단계 k에서 요소가 보이는지, data-add 클래스를 붙인다 (반환: 보이는지)
+  function setState(el, k) {
+    const a = +el.dataset.s, o = el.dataset.o ? +el.dataset.o : Infinity;
+    const vis = k >= a && k < o;
+    el.classList.toggle("on", vis);
+    el.classList.toggle("off", !vis);
+    if (el.dataset.add) {
+      const st = {};
+      for (const e of el.dataset.add.split(" ")) {
+        const [j, c] = e.split(":");
+        const neg = c.startsWith("!"), name = neg ? c.slice(1) : c;
+        if (!(name in st)) st[name] = false;
+        if (k >= +j) st[name] = !neg;
+      }
+      for (const [name, on] of Object.entries(st)) el.classList.toggle(name, on);
+    }
+    return vis;
+  }
+
+  // 클릭으로 넘기는 단계인지, 지금 단계가 멈춰 있는 자리인지
+  const isStop = (s, k) => !s.stops || s.stops.includes(k);
+  const isRest = (s, k) => k >= s.max || isStop(s, k + 1);
+
+  function apply(fwd, instant) {
+    const s = SL[cur];
+    clearAsync();
+    for (const el of s.els) {
+      const was = el.classList.contains("on");
+      const vis = setState(el, step);
+      if (vis && instant) el.classList.add("done");
+      else if (vis && !was) el.classList.remove("done");
+    }
+    if (s.hook) s.hook(ctxFor(s, fwd && !instant));
+    // 클릭 단계가 아니면 다음 단계를 저절로 이어서 연다
+    if (fwd && !instant) {
+      if (!isRest(s, step)) timers.push(setTimeout(() => { step++; apply(true, false); }, (s.wait && s.wait[step + 1]) || 1100));
+      else if (step === s.max && s.next && cur < SL.length - 1) timers.push(setTimeout(() => go(cur + 1, 0, "enter"), s.next));
+    }
+    hud.textContent = `${cur + 1} / ${SL.length}`;
+    prog.style.width = `${((cur + (s.max ? step / (s.max + 1) : 0)) / (SL.length - 1)) * 100}%`;
+    notesEl.innerHTML = `<b>${s.id}</b>${s.notes || "(내레이션 없음)"}`;
+    syncPresenter();
+    try { history.replaceState(null, "", `#${cur + 1}`); } catch (e) { }
+  }
+
+  function go(i, st = 0, how = "enter") {
+    i = Math.max(0, Math.min(SL.length - 1, i));
+    if (cur >= 0) SL[cur].root.classList.remove("active");
+    cancelAnimationFrame(raf);
+    cur = i;
+    const s = SL[cur];
+    s.root.classList.add("active");
+    for (const t of SL) t.item && t.item.classList.toggle("cur", t === s);
+    s.item && s.item.scrollIntoView({ block: "nearest" });
+    step = st === "last" ? s.max : Math.min(st, s.max);
+    const instant = how !== "enter";
+    s.root.classList.add("noanim");
+    if (!instant) for (const el of s.els) { el.classList.remove("on", "done"); el.classList.add("off"); }
+    void s.root.getBoundingClientRect();
+    if (instant) { apply(false, true); void s.root.getBoundingClientRect(); s.root.classList.remove("noanim"); }
+    else { s.root.classList.remove("noanim"); void s.root.getBoundingClientRect(); apply(true, false); }
+    if (s.loop) {
+      const tick = now => { s.loop(now / 1000, s.root); raf = requestAnimationFrame(tick); };
+      raf = requestAnimationFrame(tick);
+    }
+  }
+
+  // 단계 k의 모습으로 움직임 없이 바로
+  function jump(k) {
+    const r = SL[cur].root;
+    step = k;
+    r.classList.add("noanim");
+    apply(false, true);
+    void r.getBoundingClientRect();
+    r.classList.remove("noanim");
+  }
+  function next() {
+    const s = SL[cur];
+    // 저절로 이어지는 중이면 그 묶음의 끝 모습으로 바로
+    if (!isRest(s, step)) { let k = step; while (!isRest(s, k)) k++; jump(k); }
+    else if (step < s.max) { step++; apply(true, false); }
+    else if (cur < SL.length - 1) go(cur + 1, 0, "enter");
+  }
+  function prev() {
+    // 앞의 멈춤 자리로 돌아간다. 없으면 이전 슬라이드의 끝 (장면 전환 슬라이드는 건너뛴다)
+    const s = SL[cur];
+    let k = step - 1;
+    while (k > 0 && !isRest(s, k)) k--;
+    if (k >= 0 && isRest(s, k)) jump(k);
+    else if (cur > 0) go(SL[cur - 1].next && cur > 1 ? cur - 2 : cur - 1, "last", "back");
+  }
+
+  // 사이드바: 슬라이드마다 마지막 단계 모습의 썸네일
+  const side = document.getElementById("side"), sidebtn = document.getElementById("sidebtn");
+  function buildThumbs() {
+    SL.forEach((s, i) => {
+      const b = document.createElement("button");
+      b.className = "item";
+      b.title = s.id;
+      const svg = s.svg.replace(/id="([^"]+)"/g, 'id="$1-t"').replace(/url\(#([^)]+)\)/g, "url(#$1-t)");
+      b.innerHTML = `<span class="no">${i + 1}</span><div class="thumb" data-sl="${i}"><svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">${svg}</svg></div>`;
+      for (const el of b.querySelectorAll("[data-s]")) if (setState(el, s.max)) el.classList.add("done");
+      for (const r of b.querySelectorAll('clipPath rect[width="0"]')) r.setAttribute("width", 1920);
+      b.addEventListener("click", () => { b.blur(); go(i, 0, "enter"); });  // 포커스가 남으면 Space, Enter가 이 버튼을 다시 누른다
+      side.appendChild(b);
+      s.item = b;
+    });
+  }
+  function toggleSide() {
+    document.body.classList.toggle("side");
+    fit();
+    SL[cur].item.scrollIntoView({ block: "center" });
+  }
+  sidebtn.addEventListener("click", () => { sidebtn.blur(); toggleSide(); });
+  let hideBtn = 0;
+  addEventListener("mousemove", () => { sidebtn.classList.add("show"); clearTimeout(hideBtn); hideBtn = setTimeout(() => sidebtn.classList.remove("show"), 1800); });
+
+  // 발표자 창: 대본, 다음 슬라이드, 경과 시간
+  let pres = null, t0 = Date.now();
+  function openPresenter() {
+    pres = window.open("", "presenter", "width=900,height=700");
+    if (!pres) return;
+    pres.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>발표자 창</title>
+      <style>@font-face{font-family:P;src:url("${new URL("../fonts/Pretendard-Regular.otf", location.href)}")}
+      body{margin:0;padding:28px 36px;background:#0E1116;color:#ECEEF2;font-family:P,sans-serif}
+      #top{display:flex;justify-content:space-between;color:#8B94A3;font-size:22px}
+      #id{color:#4EA1FF;font-size:22px;margin-top:14px}
+      #n{font-size:34px;line-height:1.6;margin-top:10px}
+      #nx{margin-top:26px;color:#8B94A3;font-size:20px;border-top:1px solid #2A303A;padding-top:14px}
+      #tm{font-variant-numeric:tabular-nums}</style></head>
+      <body><div id="top"><span id="pos"></span><span id="tm"></span></div><div id="id"></div><div id="n"></div><div id="nx"></div></body></html>`);
+    pres.document.close();
+    pres.addEventListener("keydown", onKey);
+    syncPresenter();
+  }
+  function syncPresenter() {
+    if (!pres || pres.closed) return;
+    const s = SL[cur], d = pres.document;
+    d.getElementById("pos").textContent = `슬라이드 ${cur + 1} / ${SL.length}   단계 ${step + 1} / ${s.max + 1}`;
+    d.getElementById("id").textContent = s.id;
+    d.getElementById("n").innerHTML = s.notes || "(내레이션 없음)";
+    const nx = SL[cur + 1];
+    d.getElementById("nx").textContent = nx ? `다음: ${nx.id}` : "마지막 슬라이드";
+  }
+  setInterval(() => {
+    if (!pres || pres.closed) return;
+    const sec = Math.floor((Date.now() - t0) / 1000);
+    pres.document.getElementById("tm").textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  }, 1000);
+
+  let typed = "";
+  function onKey(e) {
+    const k = e.key, c = e.code;  // 글자 키는 한글 입력 상태에서도 되도록 e.code로 본다
+    if (/^[0-9]$/.test(k)) { typed += k; return; }
+    if (k === "Enter" && typed) { go(+typed - 1, 0, "enter"); typed = ""; return; }
+    typed = "";
+    if (["ArrowRight", "ArrowDown", " ", "PageDown", "Enter"].includes(k)) { e.preventDefault(); e.shiftKey ? go(cur + 1, 0, "enter") : next(); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(k)) { e.preventDefault(); e.shiftKey ? go(cur - 1, 0, "enter") : prev(); }
+    else if (k === "Home") go(0);
+    else if (k === "End") go(SL.length - 1, "last", "back");
+    else if (c === "KeyN") notesEl.classList.toggle("show");
+    else if (c === "KeyP") openPresenter();
+    else if (c === "KeyH") document.body.classList.toggle("hidehud");
+    else if (c === "KeyS") toggleSide();
+    else if (k === "?" || k === "/") document.getElementById("help").classList.toggle("show");
+    else if (c === "KeyF") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    else if (k === "Escape") document.getElementById("help").classList.remove("show");
+  }
+  addEventListener("keydown", onKey);
+  document.getElementById("viewport").addEventListener("click", e => { if (e.clientX < innerWidth * 0.12) prev(); else next(); });
+  let tx = null;
+  addEventListener("touchstart", e => { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener("touchend", e => { if (tx == null) return; const dx = e.changedTouches[0].clientX - tx; if (Math.abs(dx) > 50) dx < 0 ? next() : prev(); tx = null; });
+
+  // ?last 를 붙이면 마지막 단계 모습으로 연다 (점검용)
+  const start = () => {
+    measure();
+    buildThumbs();
+    const i = Math.max(0, (parseInt(location.hash.slice(1)) || 1) - 1);
+    const m = location.search.match(/step=(\d+)/);
+    m ? go(i, +m[1], "back") : /last/.test(location.search) ? go(i, "last", "back") : go(i, 0, "enter");
+    const adv = location.search.match(/adv=(\d+)/);
+    if (adv) for (let k = 0; k < +adv[1]; k++) setTimeout(next, 300 * (k + 1));
+  };
+  addEventListener("error", e => { const d = document.createElement("div"); d.style.cssText = "position:absolute;top:0;left:0;color:#f55;font-size:28px;z-index:9"; d.textContent = e.message + " @" + e.lineno; stage.appendChild(d); });
+  document.fonts && document.fonts.ready ? document.fonts.ready.then(start) : start();
+})();
+</script>
+</body>
+</html>
