@@ -5,7 +5,7 @@
 ## 보는 방법
 
 - 웹: https://sejeans.github.io/motor-reducer-archive/
-- 내려받아 보기: 저장소를 내려받은 뒤 `발표_열기.html`을 Chrome이나 Edge로 엽니다. 인터넷 연결 없이 열립니다.
+- 내려받아 보기: 저장소를 내려받은 뒤 `최종발표/발표_열기.html`을 Chrome이나 Edge로 엽니다. 인터넷 연결 없이 열립니다. `최종발표` 폴더만 따로 옮겨도 됩니다.
 
 ## 조작
 
