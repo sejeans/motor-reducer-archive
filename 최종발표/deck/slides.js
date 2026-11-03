@@ -214,18 +214,13 @@
     return out;
   }
   // 왼쪽 위 작은 과정 지도: 지금 설명하는 칸만 채운다 (픽셀 좌표)
+  // 글자 한 줄로만 표시해 제목보다 눈에 덜 띄게 한다. 스펙트로그램 칸은 뺀다
   function miniMap(act) {
-    const w = 142, h = 34, gap = 22, y0 = 16;
-    let s = "", x = 6;
-    MAP.forEach((name, i) => {
-      if (i === 2 || i === 4) x += 12;  // 묶음 사이를 조금 더 띄운다
-      const on = act.includes(i), key = i === 2 || i === 3;
-      s += `<rect x="${x}" y="${y0}" width="${w}" height="${h}" rx="${h / 2}" fill="${on ? C.ac : C.bg}" stroke="${on ? C.ac : key ? "#E9A9AC" : C.dim}" stroke-width="2"/>` +
-        `<text x="${x + w / 2}" y="${y0 + h / 2}" font-size="19" fill="${on ? "#FFFFFF" : C.mu}"${on ? ' font-weight="600"' : ""} text-anchor="middle" dominant-baseline="central">${name}</text>`;
-      if (i < 4) s += `<text x="${x + w + gap / 2 + (i === 1 || i === 3 ? 6 : 0)}" y="${y0 + h / 2}" font-size="22" fill="${C.dim}" text-anchor="middle" dominant-baseline="central">›</text>`;
-      x += w + gap;
+    const parts = MAP.map((name, i) => [name, i]).slice(1).map(([name, i], j) => {
+      const dx = j ? ' dx="16"' : "";
+      return act.includes(i) ? `<tspan${dx} fill="${C.ac}" font-weight="600">${name}</tspan>` : `<tspan${dx} fill="#9AA2AE">${name}</tspan>`;
     });
-    return `<g>${s}</g>`;
+    return `<text x="28" y="30" font-size="20" dominant-baseline="central">${parts.join(`<tspan dx="16" fill="#C3C9D2">›</tspan>`)}</text>`;
   }
 
   // 상태 그림 (02b 카드와 00b 고장 그림)
