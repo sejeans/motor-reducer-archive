@@ -73,6 +73,12 @@ html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; font-f
 @keyframes rise { from { transform: translateY(var(--ry)); } to { transform: none; } }
 .tint.on:not(.done) { animation: tint .3s ease var(--d, 0ms) both; }
 @keyframes tint { from { fill: #16191F; } }
+/* 넓이 복사본이 제자리에 나타났다가 목표 자리로 날아간다 (--dx --dy --k) */
+.fly2 { transform-box: fill-box; transform-origin: center; }
+.fly2.on { transform: translate(var(--dx), var(--dy)) scale(var(--k)); }
+.fly2.on:not(.done) { animation: fly2 3.6s ease both; }
+@keyframes fly2 { 0%, 40% { opacity: 0; transform: none; } 46%, 60% { opacity: 1; transform: none; }
+  to { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(var(--k)); } }
 .packet.go { animation: packet 1.2s cubic-bezier(.45, 0, .55, 1) both; }
 @keyframes packet { from { transform: translateX(0); opacity: 1; } 92% { opacity: 1; } to { transform: translateX(var(--px)); opacity: 0; } }
 .flash.go { animation: flash .5s ease 1; }

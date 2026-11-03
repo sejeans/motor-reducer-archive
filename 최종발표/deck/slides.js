@@ -216,7 +216,7 @@
   // 왼쪽 위 작은 과정 지도: 지금 설명하는 칸만 채운다 (픽셀 좌표)
   function miniMap(act) {
     const w = 142, h = 34, gap = 22, y0 = 16;
-    let s = "", x = 24;
+    let s = "", x = 6;
     MAP.forEach((name, i) => {
       if (i === 2 || i === 4) x += 12;  // 묶음 사이를 조금 더 띄운다
       const on = act.includes(i), key = i === 2 || i === 3;
@@ -666,31 +666,28 @@
       ci(...ax.c2p(1.0, dm.demag[pk]), 0.14, { fill: C.warn, s: 3, o: 4, a: "pop" }) +
       Array.from({ length: NB - 1 }, (_, i) => W({ s: 4, a: "gy", d: i * 70 }, ln(...ax.c2p(bw * (i + 1), 0), ...ax.c2p(bw * (i + 1), 0.7), { c: C.ac, w: 3, dash: "10 8" }))).join("") +
       t("구간 k", kx, yt + 0.3, { size: 30, b: 1, c: C.ac, s: 5, d: 1400 });
-    // 오른쪽: 12구간의 비율 막대 (정상 vs 감자 결함)
-    const px0 = 1.6, sw = 5.2 / NB, base = -2.35, hk = 3.3 / 0.31, sx = b => px0 + sw * (b + 0.5);
-    let panel = t("구간별 에너지 비율", px0 + 2.6, 2.45, { size: 32, b: 1 }) +
-      rc(px0 + 1.0, 1.9, 0.26, 0.26, { fill: C.mu }) + t("정상", px0 + 1.25, 1.9, { size: 26, al: "l" }) +
-      rc(px0 + 2.75, 1.9, 0.26, 0.26, { fill: C.bad }) + t("감자 결함", px0 + 3.0, 1.9, { size: 26, al: "l" }) +
-      SB.map(b => rc(sx(b), base + 1.65, sw - 0.04, 3.3, { fill: C.warn, fo: 0.13 })).join("") +
-      rc(sx(KB), base + 1.65, sw, 3.3, { c: C.ac, w: 3 }) +
-      ln(px0, base, px0 + 5.2, base, { c: C.mu, w: 2 }) +
-      Array.from({ length: NB }, (_, b) => t(`${b + 1}`, sx(b), base - 0.3, { size: 20, c: b === KB ? C.ac : C.mu, b: b === KB })).join("");
-    for (let b = 0; b < NB; b++) {
-      const hn = rN[b] * hk, hd = rD[b] * hk;
-      panel += rc(sx(b) - 0.1, base + hn / 2, 0.18, hn, { fill: C.mu, a: "gy", d: 1000 + b * 60 }) +
-        rc(sx(b) + 0.1, base + hd / 2, 0.18, hd, { fill: C.bad, a: "gy", d: 1000 + b * 60 });
-    }
+    // 단계 5: 그래프가 왼쪽으로 줄어든 뒤, 칠한 넓이의 복사본이 오른쪽 식으로 날아간다
+    // 파란 넓이(구간 k) → 분자, 빨간 넓이(전체) → 분모
+    const P = [-7.8, 1.2], k6 = 0.6, shr = ([x, y]) => [P[0] + k6 * (x - P[0]), P[1] + k6 * (y - P[1])];
+    const fx = 4.6, lineY = 0, fl = 2.6, fr = 6.6;
+    const flyTo = (pts, tx, ty, tw, th, col, fo) => {
+      const q = pts.map(shr), xs_ = q.map(p => p[0]), ys_ = q.map(p => p[1]);
+      const x0 = Math.min(...xs_), x1 = Math.max(...xs_), y0 = Math.min(...ys_), y1 = Math.max(...ys_);
+      const k = Math.min(tw / (x1 - x0), th / (y1 - y0));
+      return pl(q, { close: 1, fill: col, fo, cls: "fly2", vars: `--dx:${L(tx - (x0 + x1) / 2)}px;--dy:${-L(ty - (y0 + y1) / 2)}px;--k:${k.toFixed(3)};`, s: 5 });
+    };
     const s = TT("96장씩 평균하면") +
-      W({ add: "5:shrink", cls: "mv", origin: [-7.8, 1.7] }, g) +
-      G(panel, { s: 5, a: "fade", d: 700 }) +
-      // 왼쪽 아래: 계산식. 분자 색 = 칠한 구간, 분모 색 = 전체 넓이
-      G(t([{ t: "BER", b: 1 }, { t: "k", c: C.ac, b: 1, size: 22 }, { t: " =" }], -6.75, -2.05, { size: 34, al: "l" }) +
-        t("구간 k 에너지", -3.45, -1.68, { size: 30, b: 1, c: C.ac }) + ln(-5.1, -2.05, -1.8, -2.05, { c: C.fg, w: 3 }) +
-        t("전체 에너지", -3.45, -2.42, { size: 30, b: 1, c: C.bad }) +
-        t(`= ${(rD[KB] * 100).toFixed(1)}%`, -1.55, -2.05, { size: 34, b: 1, al: "l" }), { s: 5, a: "up", d: 1600 }) +
+      W({ add: "5:shrink", cls: "mv", origin: P }, g) +
+      G(t([{ t: "BER", b: 1 }, { t: "k", c: C.ac, b: 1, size: 24 }, { t: " =" }], 1.15, lineY, { size: 38, al: "l" }) +
+        ln(fl, lineY, fr, lineY, { c: C.fg, w: 4 }), { s: 5, a: "fade", d: 1000 }) +
+      flyTo(under(0, 2.4), fx, lineY - 0.85, fr - fl - 0.2, 1.2, C.bad, 0.35) +
+      flyTo(under(bw * KB, bw * (KB + 1)), fx, lineY + 0.85, 1.6, 1.2, C.ac, 0.75) +
+      t("구간 k 에너지", fx, lineY + 1.85, { size: 32, b: 1, c: C.ac, s: 5, d: 3300 }) +
+      t("전체 에너지", fx, lineY - 1.85, { size: 32, b: 1, c: C.bad, s: 5, d: 3300 }) +
+      t(`이 구간의 비율: ${(rD[KB] * 100).toFixed(1)}%`, fx, lineY - 2.55, { size: 28, c: C.mu, s: 5, d: 3500 }) +
       t("Peak 위치는 둘 다 같다 → 기본 4개로는 구분 못 함", 0, -3.45, { size: 32, b: 1, s: 3, o: 4 }) +
       t("주파수를 12개 구간으로 나눈다", 0, -3.45, { size: 36, b: 1, c: C.ac, s: 4, o: 5 }) +
-      t("Band Energy Ratio 12개 = 분포 특징 12개", 0, -3.45, { size: 36, b: 1, c: C.ac, s: 5, d: 2000 });
+      t("Band Energy Ratio 12개 = 분포 특징 12개", 0, -3.45, { size: 36, b: 1, c: C.ac, s: 5, d: 3700 });
     add("06b_감자결함 ② 분포 특징", N["06b2"], s, { css: ".shrink{transform:scale(.6)}" });
   }
 
@@ -751,7 +748,7 @@
     const steps = [
       ["12", 0.874, C.mu, "1단계", "기본 4개 × 센서 3", "출발점", ["감자 결함을 정상으로", "자주 착각한다"], C.mu],
       ["15", 0.881, C.ac, "2단계", "+ RPM", "채택", ["조금 올랐다", "보조 정보로 유지"], C.good],
-      ["18", 0.873, C.dim, "3단계", "+ 온도", "기각", ["3차종 모두 떨어졌다", "상태별 온도가 겹친다"], C.bad],
+      ["18", 0.873, C.dim, "3단계", "+ 온도", "기각", ["3차종 모두 떨어졌다"], C.bad],
       ["51", 0.964, C.ac, "4단계", "+ 분포 12 (절대축)", "채택", ["감자 결함을 맞히는 비율", "+12~16%p"], C.good],
       ["87", 0.973, C.ac, "5단계", "+ 차수 12 (차수축)", "채택", ["감자↔정상 착각", "704건 → 433건"], C.good],
       [null, null, null, "6단계", "+ 차량 정보 25개", "기각", ["+0.058%p", "우연과 구분되지 않는다"], C.bad],
