@@ -184,21 +184,48 @@
 
   // 전체 과정 지도
   const MAP = ["스펙트로그램", "Time Series", "MiniRocket", "로지스틱 회귀", "라즈베리파이"];
+  // 과정 묶음: [첫 칸, 끝 칸, 이름, 설명]. 경량 모델 묶음은 빨간 테두리로 강조
+  const GROUPS = [[0, 1, "데이터 준비", "이미지의 시계열 변환"], [2, 3, "경량 모델", "시계열 기반 고장 판정"], [4, 4, "배포", "저사양 장치 실행"]];
   function pipeline(cy, width, o = {}) {
     const s = width / 14.2, iw = 2 * s, ih = 1.36 * s;
+    const fy = cy + 0.29 * s, ly = cy - 0.99 * s;
     let out = "";
+    GROUPS.forEach(([a, b, name, sub], gi) => {
+      const xa = (a - 2) * 2.95 * s - 1.35 * s, xb = (b - 2) * 2.95 * s + 1.35 * s;
+      const top = fy + 1.03 * s, bot = ly - 0.42 * s, key = gi === 1;
+      const g = rc((xa + xb) / 2, (top + bot) / 2, xb - xa, top - bot, { fill: key ? C.bad : "#EEF1F5", fo: key ? 0.06 : 1, c: key ? C.bad : "none", w: 3, r: 0.12 * s }) +
+        ln(xa, top + 0.72 * s, xa + 0.3 * s, top + 0.72 * s, { c: key ? C.bad : C.fg, w: 4 }) +
+        t(name, xa + 0.42 * s, top + 0.72 * s, { px: fpx(30) * s, b: 1, c: key ? C.bad : C.fg, al: "l" }) +
+        t(sub, xa, top + 0.3 * s, { px: 30 * s, c: key ? C.bad : C.mu, al: "l" });
+      out += W(o.steps ? { s: a, a: "fade" } : null, g);
+    });
     for (let i = 0; i < 5; i++) {
-      const x = (i - 2) * 2.95 * s, fy = cy + 0.29 * s, ly = cy - 0.99 * s;
+      const x = (i - 2) * 2.95 * s;
       const act = o.active === i, faded = o.active != null && !act && !(o.done || []).includes(i);
       let icon = [() => im("pair_DEMAG.jpg", x, fy, iw, ih), () => seriesIcon(x, fy, iw, ih), () => rocketIcon(x, fy, iw),
         () => sigmoidIcon(x, fy, iw, ih), () => deviceIcon(x, fy, iw)][i]();
+      const card = rc(x, fy, 2.4 * s, 1.76 * s, { fill: C.bg, r: 0.2 * s, s: o.steps ? i : undefined, a: o.steps ? "fade" : undefined });
       const frame = rc(x, fy, 2.4 * s, 1.76 * s, { c: act ? C.ac : C.dim, w: act ? 6 : 2, r: 0.2 * s });
-      const item = (o.steps ? W({ s: i, a: "draw", vars: "--dur:.6s" }, frame) : act ? `<g class="beat">${frame}</g>` : frame) +
+      const item = card + (o.steps ? W({ s: i, a: "draw", vars: "--dur:.6s" }, frame) : act ? `<g class="beat">${frame}</g>` : frame) +
         W(o.steps ? { s: i, a: "pop", d: 150 } : null, icon) + t(MAP[i], x, ly, { px: fpx(30) * s, b: 1, c: act ? C.ac : C.fg, s: o.steps ? i : undefined });
       out += faded ? `<g opacity="0.25">${item}</g>` : item;
       if (i < 4) out += ar(x + 1.2 * s, fy, x + 1.75 * s, fy, { buff: 0.06, c: C.mu, w: 4, tip: 0.25 * s, op: 1, a: o.steps ? "grow" : undefined, s: o.steps ? i + 1 : undefined, style: o.active != null ? "opacity:.5" : "" });
     }
     return out;
+  }
+  // 왼쪽 위 작은 과정 지도: 지금 설명하는 칸만 채운다 (픽셀 좌표)
+  function miniMap(act) {
+    const w = 142, h = 34, gap = 22, y0 = 16;
+    let s = "", x = 24;
+    MAP.forEach((name, i) => {
+      if (i === 2 || i === 4) x += 12;  // 묶음 사이를 조금 더 띄운다
+      const on = act.includes(i), key = i === 2 || i === 3;
+      s += `<rect x="${x}" y="${y0}" width="${w}" height="${h}" rx="${h / 2}" fill="${on ? C.ac : C.bg}" stroke="${on ? C.ac : key ? "#E9A9AC" : C.dim}" stroke-width="2"/>` +
+        `<text x="${x + w / 2}" y="${y0 + h / 2}" font-size="19" fill="${on ? "#FFFFFF" : C.mu}"${on ? ' font-weight="600"' : ""} text-anchor="middle" dominant-baseline="central">${name}</text>`;
+      if (i < 4) s += `<text x="${x + w + gap / 2 + (i === 1 || i === 3 ? 6 : 0)}" y="${y0 + h / 2}" font-size="22" fill="${C.dim}" text-anchor="middle" dominant-baseline="central">›</text>`;
+      x += w + gap;
+    });
+    return `<g>${s}</g>`;
   }
 
   // 상태 그림 (02b 카드와 00b 고장 그림)
@@ -258,9 +285,9 @@
     "05c": "센서 세 개에서 같은 시점의 세로 줄을 꺼내면 한 시점에 통계량 87개가 나옵니다. ▶ 이 계산을 10초 동안 2,000번 반복합니다. 그 결과 87개 변수가 시간 순서로 기록된 Multivariate Time Series, 87 × 2,000이 만들어집니다.",
     "06a": "통계량을 정한 과정을 설명하겠습니다. 먼저 기본 특징 4개입니다. ▶ 가장 강한 주파수의 위치인 Peak Frequency, ▶ 에너지가 있는 대역의 시작과 끝인 Band Start와 Band End, ▶ 전체 세기인 RMS입니다. ▶ 여기에 모터의 RPM을 더해 센서마다 5개로 시작했습니다.",
     "06b1": "그런데 이 특징만으로는 감자 결함을 정상으로 자주 잘못 분류했습니다. RPM이 같은 두 이미지를 비교하면, ▶ 감자 결함에서는 기본 주파수 옆에 Sideband라는 작은 줄이 생깁니다.",
-    "06b2": "두 상태의 이미지를 96장씩 평균해 주파수 분포를 겹쳐 그렸습니다. ▶ Peak 위치는 둘 다 같습니다. 그래서 기본 특징 4개로는 이 차이를 구분할 수 없습니다. ▶ 이 차이를 잡기 위해 주파수를 구간으로 나눠 구간별 에너지 비율을 계산했습니다. 이것이 분포 특징 12개입니다.",
+    "06b2": "두 상태의 이미지를 96장씩 평균해 주파수 분포를 겹쳐 그렸습니다. ▶ Peak 위치는 둘 다 같습니다. 그래서 기본 특징 4개로는 이 차이를 구분할 수 없습니다. ▶ 이 차이를 잡기 위해 주파수를 12개 구간으로 나눴습니다. ▶ 구간 하나의 에너지를 전체 에너지로 나눈 값이 구간별 에너지 비율, Band Energy Ratio입니다. 감자 결함은 Sideband가 있는 구간의 비율이 정상보다 높습니다. 이 12개 값이 분포 특징입니다.",
     "06c1": "또 하나의 문제는 RPM입니다. RPM이 올라가면 고장 주파수도 함께 올라가서, 같은 고장이 매번 다른 자리에 나타납니다. ▶ 주파수를 RPM으로 나누면 같은 고장이 항상 같은 자리에 나타납니다. 이렇게 나눈 주파수 축을 차수축이라고 합니다.",
-    "06c2": "차수축으로 바꾸면 RPM이 달라도 고장 성분이 같은 자리에 곧은 선으로 나타납니다. ▶ 다만 차수축만 쓰면 RPM 정보가 사라져 다른 고장을 구분하는 성능이 떨어집니다. 그래서 절대축 12개와 차수축 12개를 모두 넣었습니다.",
+    "06c2": "절대축은 RPM 정보를 그대로 담지만, RPM이 바뀌면 고장 위치가 움직입니다. 차수축은 고장 위치를 한 자리에 고정하지만, RPM 정보가 사라집니다. ▶ 두 축은 서로의 약점을 채우는 상호보완 관계입니다. 그래서 절대축 12개와 차수축 12개를 함께 넣었습니다.",
     "06d": "특징은 한 묶음씩 추가하고, 결과를 확인한 뒤 채택 여부를 정했습니다. 기본 특징 4개를 센서 3개에 적용한 12채널에서 Macro F1 0.874로 시작했습니다. ▶ RPM을 더하자 0.881로 조금 올라 채택했습니다. ▶ 온도는 세 차종 모두에서 성능이 떨어져 기각했습니다. 상태마다 온도 범위가 겹쳤기 때문입니다. ▶ 절대축 분포 특징 12개를 넣자 0.881에서 0.964로 올랐고, 감자 결함을 맞힌 비율이 12~16%p 높아졌습니다. ▶ 차수축 특징을 더하자 0.973이 되었고, 감자 결함과 정상을 혼동한 건수가 704건에서 433건으로 줄었습니다. ▶ 차량 정보 25개는 성능이 0.058%p 올랐지만, 이 차이는 우연과 구분되지 않아 기각했습니다. ▶ 최종 특징은 센서마다 29개, 모두 87채널입니다.",
     "07a1": "MiniRocket은 Time Series를 특징 벡터로 요약합니다. 값이 미리 정해진 짧은 Kernel을 Time Series를 따라 옮기면서 출력을 계산하고, 출력이 0보다 큰 비율을 특징값 하나로 기록합니다.",
     "07a2": "Kernel 약 1만 개에서 특징 9,996개가 나옵니다. Kernel마다 특징값을 하나씩 만듭니다. ▶ Kernel을 학습하지 않기 때문에 변환이 빠릅니다.",
@@ -268,8 +295,8 @@
     "07b2": "실제 모델은 다섯 가지 상태의 확률을 모두 계산하고, 가장 높은 상태를 판정 결과로 선택합니다. 이 예에서는 감자 결함이 94%로 가장 높습니다. ▶ 이상 점수는 전체 100%에서 정상 확률을 뺀 값입니다. 이 예에서 정상 확률은 3%입니다. ▶ 그래서 이상 점수는 100에서 3을 뺀 97입니다. 이상 점수가 높을수록 차량에 이상이 있을 가능성이 큽니다.",
     "08a": "다음은 평가 방법입니다. 기존 연구는 측정 6번에서 나온 10초 조각을 ▶ 무작위로 Train과 Test에 나눴습니다. ▶ 그러면 같은 측정에서 나온 조각이 Train과 Test 양쪽에 들어갑니다. 실제로 Test 측정 1,066개 중 1,063개가 Train에도 있었습니다. 이것을 Data Leakage라고 합니다.",
     "08b": "저희는 같은 측정에서 나온 조각을 묶어서 나눴습니다. ▶ 측정 하나는 Train과 Test 중 한쪽에만 들어갑니다. ▶ 그래서 중복이 0개이고, 모델은 처음 보는 주행 데이터로만 평가받습니다.",
-    "08c": "기존 모델을 Leakage가 있는 방식으로 평가하면 정확도가 99.65%입니다. ▶ Leakage를 없애고 다시 평가하자 96.33%로 3.3%p 내려갔습니다. ▶ 같은 기준에서 저희 모델은 96.90%입니다. ▶ 두 모델의 차이는 0.57%p입니다. ▶ 이 차이가 의미 있는지 가설 검정으로 확인했습니다. 귀무가설은 두 모델의 정확도가 같다는 것이고, 대립가설은 다르다는 것입니다. ▶ p값은 0.288로 유의수준 0.05보다 큽니다. ▶ 그래서 귀무가설을 기각할 수 없습니다. ▶ 따라서 두 모델은 통계적으로 유의한 차이가 없는 같은 수준의 정확도입니다.",
-    "08d": "모델 크기입니다. 기존 모델은 45.17MB입니다. ▶ 저희 모델은 세 차종을 모델 하나로 판정하고, 크기는 2.17MB입니다. ▶ 기존 모델의 약 1/20입니다.",
+    "08c": "기존 모델을 Leakage가 있는 방식으로 평가하면 정확도가 99.65%입니다. ▶ Leakage를 없애고 다시 평가하자 96.33%로 3.3%p 내려갔습니다. ▶ 같은 기준에서 저희 모델은 96.90%로, 두 모델의 차이는 0.57%p입니다. ▶ 이 차이가 의미 있는지 가설 검정으로 확인했습니다. 귀무가설은 두 모델의 정확도가 같다는 것이고, 대립가설은 다르다는 것입니다. p값은 0.288로 유의수준 0.05보다 큽니다. 그래서 귀무가설을 기각할 수 없습니다. 따라서 두 모델은 통계적으로 유의한 차이가 없는 같은 수준의 정확도입니다.",
+    "08d": "모델 크기입니다. 기존 모델은 45.17MB입니다. ▶ 저희 모델은 세 차종을 모델 하나로 판정하고, 크기는 2.17MB로 기존 모델의 약 1/20입니다.",
     "08e": "최종 혼동행렬입니다. 정확도는 96.90%입니다. 정답 칸인 대각선에 데이터가 모여 있습니다. ▶ 틀린 것의 78%는 감자 결함과 정상 사이의 오분류였습니다.",
     "091": "실제 동작 과정입니다. 모터 센서 신호가 10초마다 라즈베리파이로 들어오면, 탑재된 모델이 판정해 화면에 결과를 표시합니다. 판정 한 번에 걸린 시간은 0.455초입니다. 다음 신호는 10초 뒤에 들어오므로 판정은 그 전에 충분히 끝납니다.",
     "092": "10초와 비교하면 0.455초는 이 정도 길이입니다. ▶ 이 중 99%가 MiniRocket 변환 시간이고, 정규화와 분류는 1%입니다. 이 측정에는 스펙트로그램 변환과 통계량 계산 시간이 들어 있지 않습니다.",
@@ -621,25 +648,57 @@
     const dm = D.demag, ax = axes(0, -0.15, 11.5, 4.0, [0, 2.4], [0, 0.7]);
     const pk = dm.h.reduce((bi, v, i) => (Math.abs(v - 1) < Math.abs(dm.h[bi] - 1) ? i : bi), 0);
     const yb = ax.c2p(0, 0)[1], yt = ax.c2p(0, 0.7)[1];
-    let s = TT("96장씩 평균하면") + ax.svg +
+    // 주파수를 12구간으로 나누고, 구간 에너지 ÷ 전체 에너지 = Band Energy Ratio
+    const NB = 12, bw = 2.4 / NB, KB = 3, SB = [1, 2, 3, 6, 7];  // KB: 예시로 칠하는 구간, SB: Sideband가 있는 구간
+    const ratio = a => { const b = Array(NB).fill(0); dm.h.forEach((h, i) => { b[Math.min(NB - 1, Math.floor(h / bw + 1e-9))] += a[i]; }); const tot = b.reduce((x, y) => x + y, 0); return b.map(v => v / tot); };
+    const rN = ratio(dm.normal), rD = ratio(dm.demag);
+    const under = (lo, hi) => { const p = dm.h.map((h, i) => [h, dm.demag[i]]).filter(([h]) => h >= lo - 1e-9 && h <= hi + 1e-9); return [ax.c2p(p[0][0], 0), ...p.map(([h, v]) => ax.c2p(h, v)), ax.c2p(p[p.length - 1][0], 0)]; };
+    const [kx] = ax.c2p(bw * (KB + 0.5), 0);
+    const g = ax.svg +
       [[0.5, "½"], [1, "기본"], [1.5, "1½"], [2, "2"]].map(([v, l]) => t(l, ax.c2p(v, 0)[0], -2.5, { size: 28, c: C.mu })).join("") +
       t("기본 주파수의 몇 배인가 →", 0, -2.95, { size: 28, c: C.mu }) + t("평균 세기 →", -6.1, -0.15, { size: 28, c: C.mu, rot: -90 }) +
+      pl(under(0, 2.4), { close: 1, fill: C.bad, fo: 0.12, s: 5, a: "fade", d: 900 }) +
+      pl(under(bw * KB, bw * (KB + 1)), { close: 1, fill: C.ac, fo: 0.55, s: 5, a: "fade", d: 1400 }) +
       [0.25, 0.5, 0.75, 1.25, 1.5].map(c => rc(ax.c2p(c, 0)[0], (yb + yt) / 2, 11.5 * 0.04 / 2.4, yt - yb, { fill: C.warn, fo: 0.2, s: 2, a: "fade" })).join("") +
       W({ a: "wipe", vars: "--dur:1s" }, pl(curve(ax, dm.h, dm.normal), { c: C.mu, w: 5 })) +
       W({ s: 1, a: "wipe", vars: "--dur:1s" }, pl(curve(ax, dm.h, dm.demag), { c: C.bad, w: 5 })) +
       t("정상", 6.5, 2.55, { size: 30, b: 1, c: C.mu, al: "r" }) + t("감자 결함", 6.5, 2.1, { size: 30, b: 1, c: C.bad, al: "r", s: 1 }) +
       ci(...ax.c2p(1.0, dm.demag[pk]), 0.14, { fill: C.warn, s: 3, o: 4, a: "pop" }) +
+      Array.from({ length: NB - 1 }, (_, i) => W({ s: 4, a: "gy", d: i * 70 }, ln(...ax.c2p(bw * (i + 1), 0), ...ax.c2p(bw * (i + 1), 0.7), { c: C.ac, w: 3, dash: "10 8" }))).join("") +
+      t("구간 k", kx, yt + 0.3, { size: 30, b: 1, c: C.ac, s: 5, d: 1400 });
+    // 오른쪽: 12구간의 비율 막대 (정상 vs 감자 결함)
+    const px0 = 1.6, sw = 5.2 / NB, base = -2.35, hk = 3.3 / 0.31, sx = b => px0 + sw * (b + 0.5);
+    let panel = t("구간별 에너지 비율", px0 + 2.6, 2.45, { size: 32, b: 1 }) +
+      rc(px0 + 1.0, 1.9, 0.26, 0.26, { fill: C.mu }) + t("정상", px0 + 1.25, 1.9, { size: 26, al: "l" }) +
+      rc(px0 + 2.75, 1.9, 0.26, 0.26, { fill: C.bad }) + t("감자 결함", px0 + 3.0, 1.9, { size: 26, al: "l" }) +
+      SB.map(b => rc(sx(b), base + 1.65, sw - 0.04, 3.3, { fill: C.warn, fo: 0.13 })).join("") +
+      rc(sx(KB), base + 1.65, sw, 3.3, { c: C.ac, w: 3 }) +
+      ln(px0, base, px0 + 5.2, base, { c: C.mu, w: 2 }) +
+      Array.from({ length: NB }, (_, b) => t(`${b + 1}`, sx(b), base - 0.3, { size: 20, c: b === KB ? C.ac : C.mu, b: b === KB })).join("");
+    for (let b = 0; b < NB; b++) {
+      const hn = rN[b] * hk, hd = rD[b] * hk;
+      panel += rc(sx(b) - 0.1, base + hn / 2, 0.18, hn, { fill: C.mu, a: "gy", d: 1000 + b * 60 }) +
+        rc(sx(b) + 0.1, base + hd / 2, 0.18, hd, { fill: C.bad, a: "gy", d: 1000 + b * 60 });
+    }
+    const s = TT("96장씩 평균하면") +
+      W({ add: "5:shrink", cls: "mv", origin: [-7.8, 1.7] }, g) +
+      G(panel, { s: 5, a: "fade", d: 700 }) +
+      // 왼쪽 아래: 계산식. 분자 색 = 칠한 구간, 분모 색 = 전체 넓이
+      G(t([{ t: "BER", b: 1 }, { t: "k", c: C.ac, b: 1, size: 22 }, { t: " =" }], -6.75, -2.05, { size: 34, al: "l" }) +
+        t("구간 k 에너지", -3.45, -1.68, { size: 30, b: 1, c: C.ac }) + ln(-5.1, -2.05, -1.8, -2.05, { c: C.fg, w: 3 }) +
+        t("전체 에너지", -3.45, -2.42, { size: 30, b: 1, c: C.bad }) +
+        t(`= ${(rD[KB] * 100).toFixed(1)}%`, -1.55, -2.05, { size: 34, b: 1, al: "l" }), { s: 5, a: "up", d: 1600 }) +
       t("Peak 위치는 둘 다 같다 → 기본 4개로는 구분 못 함", 0, -3.45, { size: 32, b: 1, s: 3, o: 4 }) +
-      Array.from({ length: 7 }, (_, i) => W({ s: 4, a: "gy", d: i * 110 }, ln(...ax.c2p(2.4 * (i + 1) / 8, 0), ...ax.c2p(2.4 * (i + 1) / 8, 0.7), { c: C.ac, w: 3, dash: "10 8" }))).join("") +
-      t("Band Energy Ratio → 분포 특징 12개", 0, -3.45, { size: 36, b: 1, c: C.ac, s: 4 });
-    add("06b_감자결함 ② 분포 특징", N["06b2"], s);
+      t("주파수를 12개 구간으로 나눈다", 0, -3.45, { size: 36, b: 1, c: C.ac, s: 4, o: 5 }) +
+      t("Band Energy Ratio 12개 = 분포 특징 12개", 0, -3.45, { size: 36, b: 1, c: C.ac, s: 5, d: 2000 });
+    add("06b_감자결함 ② 분포 특징", N["06b2"], s, { css: ".shrink{transform:scale(.6)}" });
   }
 
   {
     const od = D.order, n = od.rpm.length;
     const ax1 = axes(0.9, 1.05, 10.5, 2.0, [0, 1280], [0, 1.05]), ax2 = axes(0.9, -2.0, 10.5, 2.0, [0, 3], [0, 1.05]);
     const xa = od.abs[0].map((_, i) => i * 5), xo = od.ord[0].map((_, i) => i * 0.015);
-    let s = TT("RPM이 바뀌면 고장 주파수도 움직인다") +
+    let s = TT("차수(Order) 변환을 통한 고장 신호 위치 고정") +
       ax1.svg + t("Frequency", -4.65, 1.05, { size: 30, b: 1, al: "r" }) +
       `<path data-n="c1" fill="none" stroke="${C.fg}" stroke-width="3" stroke-linejoin="round"/>` +
       W({ n: "rpm" }, t("", 6.6, 2.5, { size: 36, b: 1, c: C.warn, al: "r" })) +
@@ -659,14 +718,32 @@
         else ctx.anim(0, 5000, p => setRow(ctx, p * (n - 1), false), t => t, 300);
       },
     });
-    add("06c_절대축_차수축 ② 두 축을 함께", N["06c2"],
-      TT("절대축과 차수축") +
-      im("order_abs.png", -3.3, 0.05, 5.6, 3.5, { a: "fade" }) + t("절대축: 선이 기운다", -3.3, 2.26, { size: 32, b: 1 }) +
-      t("RPM →", -6.45, 0.05, { size: 28, c: C.mu, rot: -90 }) + t("Frequency →", -3.3, -2.04, { size: 28, c: C.mu }) +
-      im("order_ord.png", 3.3, 0.05, 5.6, 3.5, { s: 1, a: "fade" }) + t("차수축: 선이 곧게 선다", 3.3, 2.26, { size: 32, b: 1, c: C.ac, s: 1 }) +
-      t("Frequency ÷ RPM (Order) →", 3.3, -2.04, { size: 28, c: C.ac, s: 1 }) +
-      t("차수축만 쓰면 RPM 정보가 사라져 다른 고장 구분이 약해진다", 0, -2.82, { size: 28, b: 1, c: C.mu, s: 2 }) +
-      t("둘 다 넣었다: 절대축 12 + 차수축 12", 0, -3.45, { size: 36, b: 1, s: 2 }));
+  }
+
+  // ════════ 06c ② 절대축과 차수축은 서로의 약점을 채운다 ════════
+  {
+    const cw = 5.9, top = 2.5, bot = -1.5, yP = -0.35, yC = -1.05;
+    const card = (cx, ord, d) => {
+      const col = ord ? C.ac : C.warn, x0 = cx - 1.5, x1 = cx + 1.7, y0 = 0.6, y1 = 1.6, left = cx - cw / 2 + 0.4;
+      let m = ln(x0, y0, x1, y0, { c: C.mu, w: 2 }) + ln(x0, y0, x0, y1, { c: C.mu, w: 2 }) +
+        t("RPM ↑", x0 - 0.15, (y0 + y1) / 2, { size: 20, c: C.mu, al: "r" }) + t(ord ? "Frequency ÷ RPM →" : "Frequency →", (x0 + x1) / 2, y0 - 0.25, { size: 20, c: C.mu });
+      // 절대축: RPM이 오르면 고장 성분이 오른쪽으로 기운다 / 차수축: 늘 같은 자리
+      [1, 2, 3].forEach(k => { m += ord ? ln(x0 + 0.95 * k, y0 + 0.05, x0 + 0.95 * k, y1, { c: col, w: 4 }) : ln(x0 + 0.3 * k, y0 + 0.05, x0 + 0.98 * k, y1, { c: col, w: 4 }); });
+      const pros = ord ? "고장 위치가 한 자리에 고정" : "RPM 정보를 그대로 담는다", cons = ord ? "RPM 정보가 사라진다" : "RPM이 바뀌면 고장 위치가 이동";
+      const okMark = pl([[left - 0.12, yP + 0.01], [left - 0.02, yP - 0.11], [left + 0.15, yP + 0.13]], { c: C.good, w: 5 });
+      return G(rc(cx, (top + bot) / 2, cw, top - bot, { c: col, w: 3, fill: col, fo: 0.05, r: 0.18 }) +
+        t([{ t: ord ? "차수축" : "절대축", b: 1, c: col }, { t: ord ? "  Order" : "  Frequency", c: C.mu, size: 26 }], cx, 2.1, { size: 36 }) + m +
+        okMark + t(pros, left + 0.35, yP, { size: 28, b: 1, al: "l" }), { a: "up", d }) +
+        W({ a: "up", add: "1:dim", d }, cross(left + 0.01, yC, 0.12, C.bad, 5) + t(cons, left + 0.35, yC, { size: 28, b: 1, c: C.bad, al: "l" }));
+    };
+    // 가운데 X: 한쪽 장점이 다른 쪽 약점을 채운다
+    const xs = 0.6;
+    add("06c_절대축_차수축 ② 상호보완", N["06c2"],
+      TT("절대축과 차수축의 상호보완") + card(-3.55, false, 0) + card(3.55, true, 400) +
+      t("보완", 0, 0.25, { size: 30, b: 1, c: C.good, s: 1, a: "pop" }) +
+      ar(-xs - 0.05, yP, xs, yC, { c: C.good, w: 5, tip: 0.26, s: 1, a: "grow", d: 200 }) +
+      ar(xs + 0.05, yP, -xs, yC, { c: C.good, w: 5, tip: 0.26, s: 1, a: "grow", d: 500 }) +
+      t([{ t: "상호보완관계", c: C.ac }, { t: "  →  ", c: C.mu }, { t: "절대축 12 + 차수축 12" }], 0, -2.6, { size: 42, b: 1, s: 1, d: 900 }));
   }
 
   {
@@ -679,7 +756,7 @@
       ["87", 0.973, C.ac, "5단계", "+ 차수 12 (차수축)", "채택", ["감자↔정상 착각", "704건 → 433건"], C.good],
       [null, null, null, "6단계", "+ 차량 정보 25개", "기각", ["+0.058%p", "우연과 구분되지 않는다"], C.bad],
     ];
-    let s = TT("시행착오: 한 묶음씩 넣어 보기") + ln(x0 - 0.7, base, x0 + gap * 4 + 0.7, base, { c: C.mu, w: 2 }) +
+    let s = TT("입력 피처 조합에 따른 모델 성능 변화") + ln(x0 - 0.7, base, x0 + gap * 4 + 0.7, base, { c: C.mu, w: 2 }) +
       t("macro-F1", x0 - 0.7, 2.1, { size: 28, c: C.mu, al: "l" });
     let bi = 0;
     steps.forEach(([ch, f1, bcol, step, title, verdict, reason, vcol], k) => {
@@ -730,15 +807,38 @@
     });
   }
   {
-    const r = rng(11);
-    let cells = "";
-    for (let i = 0; i < 22; i++) for (let j = 0; j < 60; j++) {
-      const idx = i * 60 + j, x = -5.685 + 0.08 + j * 0.19, y = -0.2 + 2.075 - 0.08 - i * 0.19;
-      cells += `<rect class="el fade" data-s="0" style="--d:${Math.round(idx * 1.8)}ms" x="${X(x - 0.08)}" y="${Y(y + 0.08)}" width="${L(0.16)}" height="${L(0.16)}" fill="${idx ? lerpC("#DCE6F2", C.ac, r()) : C.good}"/>`;
-    }
-    add("07a_MiniRocket ② 특징 9,996개", N["07a2"],
-      TT("Kernel 약 1만 개 → Feature 9,996개") + cells +
-      t("Kernel마다 특징값 하나", 0, -3.55, { size: 34, b: 1, s: 1 }) + t("Kernel을 학습하지 않아 빠르다", 0, -2.95, { size: 34, b: 1, c: C.good, s: 2 }));
+    // Time Series 하나에 Kernel을 하나씩 대면 값이 하나씩 나오고, 그 값을 세로로 쌓은 것이 Feature Vector
+    // Kernel 그림: 길이 9, 가중치 2(위로 3개)와 −1(아래로 6개). 칸 간격(dilation)이 Kernel마다 다르다
+    const rows = [["#1", 1, [0, 3, 7], "0.42"], ["#2", 1.5, [1, 4, 5], "0.17"], ["#3", 2.1, [2, 6, 8], "0.88"], null, ["#9,996", 2.5, [0, 1, 8], "0.35"]];
+    const ys = [1.85, 0.95, 0.05, -0.75, -1.55], gx = -2.05, vx = 2.3;
+    const kernel = (y, dil, twos) => {
+      const sp = 0.075 * dil;
+      let k = ln(gx - 0.05, y, gx + sp * 8 + 0.05, y, { c: C.dim, w: 2 });
+      for (let j = 0; j < 9; j++) { const up = twos.includes(j), x = gx + sp * j; k += ln(x, y, x, up ? y + 0.27 : y - 0.14, { c: up ? C.warn : C.mu, w: 6 }); }
+      return k;
+    };
+    let s = TT("Kernel 약 1만 개 → Feature 9,996개") +
+      G(im("mts.png", -5.6, 0.15, 2.3, 1.6, { pix: 1 }) + rc(-5.6, 0.15, 2.34, 1.64, { c: C.dim, w: 2 }) +
+        t("Time Series", -5.6, -0.95, { size: 30, b: 1 }) + t("87 × 2,000", -5.6, -1.45, { size: 26, c: C.mu }), { a: "fade" }) +
+      ar(-4.35, 0.15, -3.55, 0.15, { c: C.mu, w: 4, a: "grow", d: 300 }) +
+      rc(-1.3, 0.15, 4.4, 4.5, { c: C.warn, w: 2, fill: C.warn, fo: 0.06, r: 0.15, a: "fade", d: 300 }) +
+      t("Kernel", -1.3, 2.65, { size: 28, b: 1, c: C.warn, a: "fade", d: 300 });
+    rows.forEach((r, i) => {
+      const y = ys[i], d = 600 + i * 350;
+      if (!r) { s += t("⋮", -3.0, y, { size: 36, b: 1, c: C.mu, a: "fade", d }) + t("⋮", -1.2, y, { size: 36, b: 1, c: C.mu, a: "fade", d }) + t("⋮", vx, y, { size: 36, b: 1, c: C.mu, a: "fade", d }); return; }
+      const [name, dil, twos, v] = r;
+      s += t(name, -3.3, y, { size: 26, b: 1, al: "l", a: "fade", d }) + G(kernel(y, dil, twos), { a: "pop", d }) +
+        rc(0.45, y, 0.75, 0.42, { c: C.good, w: 2, fill: C.good, fo: 0.12, r: 0.08, s: 2, a: "pop", d: i * 90 }) + t("고정", 0.45, y, { size: 20, b: 1, c: C.good, s: 2, d: i * 90 }) +
+        ar(1.0, y, 1.62, y, { c: C.mu, w: 3, tip: 0.18, a: "grow", d: d + 150 }) +
+        rc(vx, y, 0.9, 0.6, { c: C.ac, w: 2, fill: "#F4F6F9", r: 0.08, a: "pop", d: d + 300 }) + t(v, vx, y, { size: 26, b: 1, a: "pop", d: d + 300 });
+    });
+    // 값들을 묶는 괄호 = Feature Vector
+    const bt = 2.35, bb = -2.0, bl = 1.7, br = 2.9;
+    s += W({ a: "draw", d: 2300, vars: "--dur:.5s" }, pl([[bl + 0.15, bt], [bl, bt], [bl, bb], [bl + 0.15, bb]], { c: C.ac, w: 4 }) + pl([[br - 0.15, bt], [br, bt], [br, bb], [br - 0.15, bb]], { c: C.ac, w: 4 })) +
+      t("Feature Vector", 3.3, 0.6, { size: 32, b: 1, al: "l", a: "fade", d: 2500 }) + t("9,996개", 3.3, -0.2, { size: 58, b: 1, c: C.ac, al: "l", a: "fade", d: 2500 }) +
+      t("Kernel 하나 → 특징값 하나 (출력이 0보다 큰 비율)", 0, -2.85, { size: 32, b: 1, s: 1 }) +
+      t("Kernel 값이 미리 정해져 있어 학습하지 않는다 → 변환이 빠르다", 0, -3.5, { size: 32, b: 1, c: C.good, s: 2 });
+    add("07a_MiniRocket ② 특징 9,996개", N["07a2"], s);
   }
 
   transition(3);
@@ -790,7 +890,7 @@
     // 이상 점수: 막대들을 왼쪽으로 줄이고, 100% 기둥에서 정상 확률을 빼고 남은 부분이 이상 점수
     const sc = 0.68, tx = -3.1, cx = 2.4, H = 4.2, pN = 0.03, hN = H * pN;
     const SCORE = "#B91010", SCORE_T = "#D52F2F";  // 이상 점수: 채움은 진한 빨강, 글자는 조금 밝은 빨강
-    let s = TT("상태 5가지의 확률 중 가장 높은 쪽") +
+    let s = TT("5가지 상태 확률 모델을 활용한 최종 이상 점수 판정") +
       W({ add: "2:shrink", vars: `transform-origin:${X(0)}px ${Y(-2)}px;` }, bars) +
       rc(cx, -2 + H / 2, 1.4, H, { c: C.fg, w: 2, dash: "10 8", s: 2, a: "fade", d: 500 }) +
       t("100%", cx, 2.55, { size: 32, b: 1, s: 2, d: 500 }) +
@@ -835,7 +935,7 @@
           t("같은 측정이 Train과 Test 양쪽에 → Data Leakage", 0, -2.95, { size: 36, b: 1, c: C.bad, s: 3 }) +
           t("Test 측정 1,066개 중 1,063개가 Train에도 있었다", 0, -3.5, { size: 30, b: 1, s: 3 });
       } else {
-        s += t("같은 측정은 한쪽에만 → 중복 0개", 0, -2.95, { size: 36, b: 1, c: C.good, s: 3 }) + t("처음 보는 주행으로만 평가", 0, -3.5, { size: 32, b: 1, s: 3 });
+        s += t("데이터 누수 제거", 0, -2.95, { size: 36, b: 1, c: C.good, s: 3 }) + t("처음 보는 주행으로만 평가", 0, -3.5, { size: 32, b: 1, s: 3 });
       }
       return s;
     };
@@ -858,20 +958,22 @@
     chart += ar(-2.55, vy[0], -0.9, vy[1], { buff: 0.15, c: C.mu, w: 3, s: 1, a: "grow", d: 900 }) + t("−3.3%p", -1.1, 1.75, { size: 30, b: 1, c: C.bad, s: 1, d: 1300 });
     // 위로 볼록한 곡선 화살표 (96.33 → 96.90)
     const p0 = [0, vy[1] + 0.4], p1 = [3.4, vy[2] + 0.4], R = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
-    chart += W({ s: 3, a: "draw", vars: "--dur:.6s" }, `<path d="M${X(p0[0])},${Y(p0[1])} A${L(R)},${L(R)} 0 0 1 ${X(p1[0])},${Y(p1[1])}" fill="none" stroke="${C.good}" stroke-width="4"/>`) +
-      pl([[p1[0] - 0.05, p1[1] + 0.3], [p1[0], p1[1]], [p1[0] - 0.3, p1[1] + 0.05]], { c: C.good, w: 4, s: 3, d: 600 }) +
-      t("+0.57%p", 1.7, 2.45, { size: 36, b: 1, c: C.good, s: 3, d: 600 }) + t("p = 0.288", 1.7, 1.95, { size: 28, s: 3, o: 4, d: 600 });
-    const tx = 0.7;
-    const s = TT("Data Leakage 제거 후 비교") + t("Y축 90%부터", -6.6, 2.55, { size: 26, c: C.mu, al: "l", o: 4 }) +
-      W({ add: "4:shrink", vars: `transform-origin:${X(0)}px ${Y(-0.2)}px;` }, chart) +
-      t("가설 검정", tx, 2.0, { size: 34, b: 1, c: C.mu, al: "l", s: 4, d: 900 }) +
-      t([{ t: "H₀  ", c: C.ac, size: 34 }, { t: "두 모델의 정확도가 같다", size: 32 }], tx, 1.2, { b: 1, al: "l", s: 4, d: 1300 }) +
-      t([{ t: "H₁  ", c: C.warn, size: 34 }, { t: "두 모델의 정확도가 다르다", size: 32 }], tx, 0.45, { b: 1, al: "l", s: 4, d: 1700 }) +
-      t([{ t: "p = 0.288   " }, { t: "> 0.05", c: C.mu }], tx, -0.45, { size: 36, b: 1, al: "l", s: 5 }) +
-      t("→ H₀를 기각할 수 없다", tx, -1.15, { size: 32, b: 1, al: "l", s: 6 }) +
-      rc(tx + 2.9, -2.35, 6.1, 1.25, { c: C.good, w: 4, r: 0.12, s: 7, a: "draw", vars: "--dur:.4s" }) +
-      t("통계적으로 유의한 차이 없음", tx + 0.2, -2.1, { size: 36, b: 1, c: C.good, al: "l", s: 7, d: 300 }) +
-      t("= 같은 수준의 정확도", tx + 0.2, -2.62, { size: 32, b: 1, al: "l", s: 7, d: 300 });
+    // 우리 모델 막대와 초록 화살표(+0.57%p)는 같은 클릭에 함께 나온다
+    chart += W({ s: 2, a: "draw", d: 900, vars: "--dur:.6s" }, `<path d="M${X(p0[0])},${Y(p0[1])} A${L(R)},${L(R)} 0 0 1 ${X(p1[0])},${Y(p1[1])}" fill="none" stroke="${C.good}" stroke-width="4"/>`) +
+      pl([[p1[0] - 0.05, p1[1] + 0.3], [p1[0], p1[1]], [p1[0] - 0.3, p1[1] + 0.05]], { c: C.good, w: 4, s: 2, d: 1500 }) +
+      t("+0.57%p", 1.7, 2.45, { size: 36, b: 1, c: C.good, s: 2, d: 1500 }) + t("p = 0.288", 1.7, 1.95, { size: 28, s: 2, o: 3, d: 1500 });
+    // 가설 검정은 한 클릭에 전부
+    const tx = 0.7, hd = 700;
+    const s = TT("Data Leakage 제거 후 비교") + t("Y축 90%부터", -6.6, 2.55, { size: 26, c: C.mu, al: "l", o: 3 }) +
+      W({ add: "3:shrink", vars: `transform-origin:${X(0)}px ${Y(-0.2)}px;` }, chart) +
+      G(t("가설 검정", tx, 2.0, { size: 34, b: 1, c: C.mu, al: "l" }) +
+        t([{ t: "H₀  ", c: C.ac, size: 34 }, { t: "두 모델의 정확도가 같다", size: 32 }], tx, 1.2, { b: 1, al: "l" }) +
+        t([{ t: "H₁  ", c: C.warn, size: 34 }, { t: "두 모델의 정확도가 다르다", size: 32 }], tx, 0.45, { b: 1, al: "l" }) +
+        t([{ t: "p = 0.288   " }, { t: "> 0.05", c: C.mu }], tx, -0.45, { size: 36, b: 1, al: "l" }) +
+        t("→ H₀를 기각할 수 없다", tx, -1.15, { size: 32, b: 1, al: "l" }) +
+        rc(tx + 2.9, -2.35, 6.1, 1.25, { c: C.good, w: 4, r: 0.12 }) +
+        t("통계적으로 유의한 차이 없음", tx + 0.2, -2.1, { size: 36, b: 1, c: C.good, al: "l" }) +
+        t("= 같은 수준의 정확도", tx + 0.2, -2.62, { size: 32, b: 1, al: "l" }), { s: 3, a: "fade", d: hd });
     add("08c_정확도_비교", N["08c"], s, { css: `.shrink{transform:translate(${-L(3.4)}px,${L(0.2)}px) scale(.68)}` });
   }
 
@@ -883,7 +985,7 @@
       rc(left + 45.17 * sc / 2, 0.74, 45.17 * sc, 0.8, { fill: C.warn, fo: 0.9, a: "gx" }) + t("45.17MB", left + 45.17 * sc + 0.3, 0.74, { size: 42, b: 1, c: C.warn, al: "l", d: 800 }) +
       t("우리 모델 (3차종)", left, -0.76, { size: 34, b: 1, al: "l", s: 1 }) +
       rc(left + 2.17 * sc / 2, -1.52, 2.17 * sc, 0.8, { fill: C.ac, fo: 0.9, a: "gx", s: 1 }) + t("2.17MB", left + 2.17 * sc + 0.3, -1.52, { size: 42, b: 1, c: C.ac, al: "l", s: 1, d: 800 }) +
-      t("약 1/20 크기", left, -2.92, { size: 44, b: 1, c: C.good, al: "l", s: 2 }));
+      t("약 1/20 크기", left, -2.92, { size: 44, b: 1, c: C.good, al: "l", s: 1, d: 1300 }));
   }
 
   {
@@ -924,10 +1026,9 @@
       t("화면", 5.0, -1.29, { size: 30, b: 1 }) +
       `<text data-n="clock" x="${X(6.6)}" y="${Y(2.43)}" font-size="${fpx(44)}" font-weight="600" fill="${C.warn}" text-anchor="end" dominant-baseline="central">0초</text>` +
       `<g data-n="pkt" class="packet" style="--px:${L(4.4)}px;opacity:0">${pkt}</g>` +
-      t("판정 0.455초", 0, -2.03, { size: 40, b: 1, c: C.ac, s: 1, d: 1500 }) +
-      t("다음 신호는 10초 뒤 → 판정은 그 안에 충분히 끝난다", 0, -3.45, { size: 32, b: 1, s: 4 });
+      t("판정 0.455초", 0, -2.03, { size: 40, b: 1, c: C.ac, s: 1, d: 1500 });
     add("09_라즈베리파이_실측 ① 실시간 판정", N["091"], s, {
-      steps: 4,
+      steps: 3,
       hook(ctx) {
         const lamp = ctx.$("lamp"), st = ctx.$("status"), clock = ctx.$("clock"), pk = ctx.$("pkt"), model = ctx.$("model");
         const show = k => {
@@ -993,9 +1094,9 @@
 
   // ════════ 11 정리 ════════
   {
-    let s = TT("정리") + G(pipeline(1.25, 12.6), { a: "fade" });
+    let s = TT("정리") + G(pipeline(0.85, 12.6), { a: "fade" });
     [["정확도", "96.90%  기존 모델과 같은 수준"], ["모델 크기", "2.17MB  기존의 약 1/20"], ["판정 시간", "0.455초  목표 10초"]].forEach(([h, r], i) => {
-      const y = -1.12 - i * 0.93;
+      const y = -1.25 - i * 0.9;
       s += checkbox(-4.32, y, 0.55, false) + W({ s: i + 1, a: "draw", vars: "--dur:.35s" }, checkbox(-4.32, y, 0.55, true).replace(/^<rect[^>]*\/>/, "")) +
         t(h, -3.75, y, { size: 36, b: 1, al: "l" }) + t(r, -1.45, y, { size: 36, b: 1, c: C.good, al: "l", s: i + 1, d: 250 });
     });
@@ -1025,20 +1126,24 @@
     "05c_다변량시계열_87x2000": { stops: [2], wait: { 3: 6800 } },
     "06a_기본특징_회전수": { stops: [1, 2, 3, 4], wait: { 5: 1500 } },
     "06b_감자결함 ① 사이드밴드": { stops: [2] },
-    "06b_감자결함 ② 분포 특징": { stops: [3, 4] },
+    "06b_감자결함 ② 분포 특징": { stops: [3, 4, 5] },
     "06c_절대축_차수축 ① 움직이는 주파수": { stops: [2], wait: { 1: 5600, 3: 5600 } },
-    "06c_절대축_차수축 ② 두 축을 함께": { stops: [2] },
+    "06c_절대축_차수축 ② 상호보완": { stops: [1] },
     "07a_MiniRocket ① 커널": { stops: [], wait: { 1: 800 } },
-    "07a_MiniRocket ② 특징 9,996개": { stops: [2] },
+    "07a_MiniRocket ② 특징 9,996개": { stops: [2], wait: { 1: 3000 } },
     "07b_로지스틱회귀 ① 확률": { stops: [6, 7, 8], wait: { 1: 100, 2: 250, 3: 250, 4: 700, 5: 300 } },
     "07b_로지스틱회귀 ② 다섯 상태": { stops: [2, 3], wait: { 4: 1500 } },
     "08a_기존연구_무작위분할_누수": { stops: [2, 3] },
     "08b_우리연구_측정단위분할": { stops: [2, 3] },
     "08e_혼동행렬": { stops: [2] },
-    "09_라즈베리파이_실측 ① 실시간 판정": { stops: [], wait: { 1: 800, 2: 2800, 3: 2800, 4: 2800 } },
+    "09_라즈베리파이_실측 ① 실시간 판정": { stops: [], wait: { 1: 800, 2: 2800, 3: 2800 } },
     "09_라즈베리파이_실측 ② 0.455초의 구성": { stops: [2] },
   };
+  // 18쪽(05a)부터 왼쪽 위에 작은 과정 지도: 슬라이드 id 앞부분 → 채울 칸
+  const SEC = [["05", [1]], ["06", [1]], ["07a", [2]], ["07b", [3]], ["08", [2, 3]], ["09", [4]], ["10", [4]]];
   for (const s of S) {
+    const m = SEC.find(([p]) => s.id.startsWith(p));
+    if (m) s.svg += miniMap(m[1]);
     Object.assign(s, FLOW[s.id]);
     if (s.id.startsWith("04_전환")) s.next = 1600;  // 장면 전환은 잠깐 보이고 다음 슬라이드로
   }
